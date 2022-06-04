@@ -64,6 +64,10 @@ client.on('messageCreate', async msg => {
             removeLimit(msg)
             return
         }
+        if (msg.content.toLocaleLowerCase().startsWith("!help")) {
+            msg.channel.send("Set a limit by typing: '!setlimit @username amount.' \nRemove the limit by typing: '!removelimit @username.'")
+            return
+        }
     }
 });
 
@@ -147,6 +151,29 @@ async function addNewMessage(msg) {
     }
 }
 
+function removeLimit(msg) {
+    msgArray = msg.content.trim().split(/\s+/)
+    user = msgArray[1].replace("<@", "").replace(">", "")
+    let guild = client.guilds.cache.get(msg.guildId);
+    member = guild.members.cache.get(user);
+    myJSONpath = currentPath+"/data/" + msg.guildId + "/log.json"
+    if (fs.existsSync(myJSONpath)) {
+        var data = fs.readFileSync(myJSONpath);
+        data = JSON.parse(data);
+        if (!data[user]) {
+            msg.reply("User doesn't have a limit")
+        } else {
+            delete data[user];
+        }
+        fs.writeFile(myJSONpath, JSON.stringify(data, null, 4), (err) => {
+            if (err) throw err;
+            msg.reply(`Limit for user: ${member.user.username}#${member.user.discriminator} removed`)
+        });
+    } else {
+        msg.reply("User doesn't have a limit")
+    }
+}
+
 function setLimit(msg) {
     msgArray = msg.content.trim().split(/\s+/)
     user = msgArray[1].replace("<@", "").replace(">", "")
@@ -187,11 +214,11 @@ function setLimit(msg) {
             if (err) throw err;
             switch(checkUser(msg)) {
                 case "noUser":
-                    enforcedUsers[msg.guildId].push(msg.author.id);
+                    enforcedUsers[msg.guildId].push(member.user.id);
                     break;
                 case "noGuild":
                     enforcedUsers[msg.guildId] = [];
-                    enforcedUsers[msg.guildId].push(msg.author.id)
+                    enforcedUsers[msg.guildId].push(member.user.id)
                     break;
                 case true:
                     break;
