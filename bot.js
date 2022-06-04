@@ -210,6 +210,7 @@ function resetmessages(msg) {
         data = JSON.parse(data);
         if (!data[user]) {
             msg.reply("User doesn't have a limit")
+            return
         } else {
             data[user]['messages'] = [];
         }
