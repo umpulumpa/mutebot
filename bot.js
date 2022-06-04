@@ -66,8 +66,12 @@ client.on('messageCreate', async msg => {
             removeLimit(msg)
             return
         }
+        if (msg.content.toLocaleLowerCase().startsWith("!resetmessages")) {
+            resetmessages(msg)
+            return
+        }
         if (msg.content.toLocaleLowerCase().startsWith("!help")) {
-            msg.channel.send("Set a limit by typing: '!setlimit @username amount.' \nRemove the limit by typing: '!removelimit @username.'")
+            msg.channel.send("Set a limit by typing: '!setlimit @username amount.' \nRemove the limit by typing: '!removelimit @username.'\nReset message count by typing: '!resetmessages @username.'")
             return
         }
     }
@@ -153,19 +157,35 @@ async function addNewMessage(msg) {
     }
 }
 
+
+function checkAdmin(msg, member) {
+    if (!(member.permissions.has(Permissions.FLAGS.ADMINISTRATOR))) {
+        msg.reply("Wow! Calm down there bucko, you're not an admin.")
+        return false
+    } else {
+        return true
+    }
+}
+
+
 function removeLimit(msg) {
     msgArray = msg.content.trim().split(/\s+/)
     user = msgArray[1].replace("<@", "").replace(">", "")
     let guild = client.guilds.cache.get(msg.guildId);
     member = guild.members.cache.get(user);
     myJSONpath = currentPath+"/data/" + msg.guildId + "/log.json"
+    if (checkAdmin(msg, guild.members.cache.get(msg.author.id)) == false) {
+        return
+    }
     if (fs.existsSync(myJSONpath)) {
         var data = fs.readFileSync(myJSONpath);
         data = JSON.parse(data);
         if (!data[user]) {
             msg.reply("User doesn't have a limit")
+            return
         } else {
             delete data[user];
+            delete enforcedUsers[user]
         }
         fs.writeFile(myJSONpath, JSON.stringify(data, null, 4), (err) => {
             if (err) throw err;
@@ -176,10 +196,36 @@ function removeLimit(msg) {
     }
 }
 
+function resetmessages(msg) {
+    msgArray = msg.content.trim().split(/\s+/)
+    user = msgArray[1].replace("<@", "").replace(">", "")
+    let guild = client.guilds.cache.get(msg.guildId);
+    member = guild.members.cache.get(user);
+    myJSONpath = currentPath+"/data/" + msg.guildId + "/log.json"
+    if (checkAdmin(msg, guild.members.cache.get(msg.author.id)) == false) {
+        return
+    }
+    if (fs.existsSync(myJSONpath)) {
+        var data = fs.readFileSync(myJSONpath);
+        data = JSON.parse(data);
+        if (!data[user]) {
+            msg.reply("User doesn't have a limit")
+        } else {
+            data[user]['messages'] = [];
+        }
+        fs.writeFile(myJSONpath, JSON.stringify(data, null, 4), (err) => {
+            if (err) throw err;
+            msg.reply(`Messages for user: ${member.user.username}#${member.user.discriminator} have been reset`)
+        });
+    } else {
+        msg.reply("User doesn't have a limit")
+    }
+}
+
 function setLimit(msg) {
     msgArray = msg.content.trim().split(/\s+/)
     user = msgArray[1].replace("<@", "").replace(">", "")
-    limit = msgArray[2]
+    limit = parseInt(msgArray[2])
     myJSONpath = currentPath+"/data/" + msg.guildId + "/log.json"
     if (user == msg.author.id) {
         msg.reply("You can't change your own limit dummy. 🙂")
@@ -191,13 +237,16 @@ function setLimit(msg) {
     }
     let guild = client.guilds.cache.get(msg.guildId);
     let member = guild.members.cache.get(msg.author.id);
-    if (!(member.permissions.has(Permissions.FLAGS.ADMINISTRATOR))) {
-        msg.reply("Wow! Calm down there bucko, you're not an admin.")
+    if (checkAdmin(msg, guild.members.cache.get(msg.author.id)) == false) {
         return
     }
     member = guild.members.cache.get(user);
     if (member.permissions.has(Permissions.FLAGS.ADMINISTRATOR)) {
         msg.reply("Wow! Calm down there bucko, that's an admin.")
+        return
+    }
+    if (!(Number.isInteger(limit))) {
+        msg.reply("That's not a number...")
         return
     }
     if (fs.existsSync(myJSONpath)) {
@@ -239,5 +288,6 @@ function setLimit(msg) {
         }
     }
 }
+
 
 client.login(process.env.CLIENT_TOKEN);
