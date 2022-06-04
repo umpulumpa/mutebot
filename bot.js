@@ -35,7 +35,9 @@ process.on('unhandledRejection', (reason, promise) => {
 })
 
 enforcedUsers = {}
-
+if (!(fs.existsSync(currentPath+"/data/"))) {
+    fs.mkdirSync(currentPath+"/data/")
+}
 fs.readdir(currentPath+"/data", (err, files) => {
     files.forEach(file => {
         myJSONpath = currentPath+"/data/" + file + "/log.json"
