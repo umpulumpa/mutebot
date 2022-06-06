@@ -5,12 +5,6 @@ const fs = require('fs')
 const {
     Client,
     Intents,
-    BaseGuildVoiceChannel,
-    MessageEmbed,
-    MessageActionRow,
-    MessageButton,
-    ButtonInteraction,
-    MessageComponentInteraction,
     Permissions
 } = require('discord.js');
 const client = new Client({
@@ -99,9 +93,9 @@ function checkAllowed(msg) {
             if (fs.existsSync(myJSONpath)) {
                 var data = fs.readFileSync(myJSONpath);
                 data = JSON.parse(data);
-                if (data[msg.author.id]["limit"] != "") {
+                if (data[msg.author.id]["limit"] !== undefined) {
                     msgNumber = data[msg.author.id]["limit"] - data[msg.author.id]["messages"].length
-                    if (msgNumber < 0) {
+                    if (msgNumber <= 0) {
                         return false
                     } else {
                         return true
@@ -114,11 +108,19 @@ function checkAllowed(msg) {
 }
 
 function timeOut(msg) {
-    msg.delete()
-    let guild = client.guilds.cache.get(msg.guildId);
-    let member = guild.members.cache.get(msg.author.id);
-    member.timeout(1 * 60 * 1000, "You have exceeded your daily quota.")
-    console.log(`Timed out ${msg.author.username}`)
+    if (msg.guild.me.permissions.has(Permissions.FLAGS.MANAGE_MESSAGES)) {
+        msg.delete()
+    } else {
+        msg.channel.send("The bot does not have permissions to delete a message.")
+    }
+    if (msg.guild.me.permissions.has(Permissions.FLAGS.MODERATE_MEMBERS)) {
+        let guild = client.guilds.cache.get(msg.guildId);
+        let member = guild.members.cache.get(msg.author.id);
+        member.timeout(1 * 60 * 1000, "You have exceeded your daily quota.")
+        console.log(`Timed out ${msg.author.username}`)
+    } else {
+        msg.channel.send("The bot does not have permissions to timeout a user.")
+    }
 }
 
 emojiArray = ['0️⃣', '1️⃣','2️⃣','3️⃣','4️⃣','5️⃣' ,'6️⃣','7️⃣', '8️⃣', '9️⃣', '🔟']
@@ -185,7 +187,7 @@ function removeLimit(msg) {
             return
         } else {
             delete data[user];
-            delete enforcedUsers[user]
+            enforcedUsers[msg.guildId] = enforcedUsers[msg.guildId].filter(e => e !== user);
         }
         fs.writeFile(myJSONpath, JSON.stringify(data, null, 4), (err) => {
             if (err) throw err;
@@ -227,18 +229,26 @@ function setLimit(msg) {
     msgArray = msg.content.trim().split(/\s+/)
     user = msgArray[1].replace("<@", "").replace(">", "")
     limit = parseInt(msgArray[2])
+    let guild = client.guilds.cache.get(msg.guildId);
     myJSONpath = currentPath+"/data/" + msg.guildId + "/log.json"
+    if (checkAdmin(msg, guild.members.cache.get(msg.author.id)) == false) {
+        return
+    }
     if (user == msg.author.id) {
         msg.reply("You can't change your own limit dummy. 🙂")
         return
     }
-    if (user.startsWith("&")) {
+    if (user.includes("&")) {
+        msg.reply("Can't set a limit for this user")
+        return
+    }
+    member = guild.members.cache.get(user)
+    if (member.user.bot) {
         msg.reply("That's a bot -_-")
         return
     }
-    let guild = client.guilds.cache.get(msg.guildId);
-    let member = guild.members.cache.get(msg.author.id);
-    if (checkAdmin(msg, guild.members.cache.get(msg.author.id)) == false) {
+    if (user == msg.guild.me.user.id) {
+        msg.reply("You can't do that to me, peasant.")
         return
     }
     member = guild.members.cache.get(user);
